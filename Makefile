@@ -182,6 +182,8 @@ UPROGS=\
 	_wc\
 	_zombie\
 	_hello\
+	_forknexectest\
+	_forknexectest2\
 
 fs.img: mkfs README $(UPROGS)
 	./mkfs fs.img README $(UPROGS)

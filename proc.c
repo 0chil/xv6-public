@@ -6,6 +6,7 @@
 #include "x86.h"
 #include "proc.h"
 #include "spinlock.h"
+#include "elf.h"
 
 struct {
   struct spinlock lock;
@@ -219,6 +220,130 @@ fork(void)
   release(&ptable.lock);
 
   return pid;
+}
+
+int forknexec(const char* path, const char **args)
+{
+  int i;
+  struct proc *new_process;
+  struct proc *current_process = myproc();
+
+  // Allocate process.
+  if((new_process = allocproc()) == 0){
+    return -2;
+  }
+
+  new_process->parent = current_process;
+  *new_process->tf = *current_process->tf;
+
+  for(i = 0; i < NOFILE; i++)
+    if(current_process->ofile[i])
+      new_process->ofile[i] = filedup(current_process->ofile[i]);
+  new_process->cwd = idup(current_process->cwd);
+
+  char *s, *last;
+  int off;
+  uint argc, sz, sp, ustack[3+MAXARG+1];
+  struct elfhdr elf;
+  struct inode *ip;
+  struct proghdr ph;
+  pde_t *pgdir;
+
+  begin_op();
+
+  if((ip = namei((char *)path)) == 0){
+    end_op();
+    return -1;
+  }
+  ilock(ip);
+  pgdir = 0;
+
+  // Check ELF header
+  if(readi(ip, (char*)&elf, 0, sizeof(elf)) != sizeof(elf))
+    goto bad;
+  if(elf.magic != ELF_MAGIC)
+    goto bad;
+
+  if((pgdir = setupkvm()) == 0)
+    goto bad;
+
+  // Load program into memory.
+  sz = 0;
+  for(i=0, off=elf.phoff; i<elf.phnum; i++, off+=sizeof(ph)){
+    if(readi(ip, (char*)&ph, off, sizeof(ph)) != sizeof(ph))
+      goto bad;
+    if(ph.type != ELF_PROG_LOAD)
+      continue;
+    if(ph.memsz < ph.filesz)
+      goto bad;
+    if(ph.vaddr + ph.memsz < ph.vaddr)
+      goto bad;
+    if((sz = allocuvm(pgdir, sz, ph.vaddr + ph.memsz)) == 0)
+      goto bad;
+    if(ph.vaddr % PGSIZE != 0)
+      goto bad;
+    if(loaduvm(pgdir, (char*)ph.vaddr, ip, ph.off, ph.filesz) < 0)
+      goto bad;
+  }
+  iunlockput(ip);
+  end_op();
+  ip = 0;
+
+  // Allocate two pages at the next page boundary.
+  // Make the first inaccessible.  Use the second as the user stack.
+  sz = PGROUNDUP(sz);
+  if((sz = allocuvm(pgdir, sz, sz + 2*PGSIZE)) == 0)
+    goto bad;
+  clearpteu(pgdir, (char*)(sz - 2*PGSIZE));
+  sp = sz;
+
+  // Push argument strings, prepare rest of stack in ustack.
+  for(argc = 0; args[argc]; argc++) {
+    if(argc >= MAXARG)
+      return -1;
+    sp = (sp - (strlen(args[argc]) + 1)) & ~3;
+    if(copyout(pgdir, sp, (void *)args[argc], strlen(args[argc]) + 1) < 0)
+      goto bad;
+    ustack[3+argc] = sp;
+  }
+  ustack[3+argc] = 0;
+
+  ustack[0] = 0xffffffff;  // fake return PC
+  ustack[1] = argc;
+  ustack[2] = sp - (argc+1)*4;  // argv pointer
+
+  sp -= (3+argc+1) * 4;
+  if(copyout(pgdir, sp, ustack, (3+argc+1)*4) < 0)
+    goto bad;
+
+  // Save program name for debugging.
+  for(last=s=(char *)path; *s; s++)
+    if(*s == '/')
+      last = s+1;
+  safestrcpy(new_process->name, last, sizeof(new_process->name));
+
+  // Commit to the user image.
+  new_process->pgdir = pgdir;
+  new_process->sz = sz;
+  new_process->tf->eip = elf.entry;  // main
+  new_process->tf->esp = sp;
+  switchuvm(new_process);
+
+  acquire(&ptable.lock);
+  new_process->state = RUNNABLE;
+  release(&ptable.lock);
+
+  yield();
+  return wait();
+  
+ bad:
+  if(pgdir)
+    freevm(pgdir);
+  if(ip){
+    iunlockput(ip);
+    end_op();
+  }
+  return -2;
 }
 
 // Exit the current process.  Does not return.
