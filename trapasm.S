@@ -1,9 +1,9 @@
 #include "mmu.h"
 
-  # vectors.S sends all traps here.
+  # vectors.S sends all traps here. 컨텍스트 저장 및 불러오기 역할을 함
 .globl alltraps
 alltraps:
-  # Build trap frame.
+  # Build trap frame. 기존 스택 저장
   pushl %ds
   pushl %es
   pushl %fs
@@ -22,7 +22,7 @@ alltraps:
 
   # Return falls through to trapret...
 .globl trapret
-trapret:
+trapret: # 스택 복구
   popal
   popl %gs
   popl %fs

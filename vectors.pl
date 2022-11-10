@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# Generate vectors.S, the trap/interrupt entry points.
+# Generate vectors.S, the trap/interrupt entry points. 트랩/인터럽트 진입점
 # There has to be one entry point per interrupt number
 # since otherwise there's no way for trap() to discover
 # the interrupt number.

@@ -10,6 +10,12 @@
 swtch:
   movl 4(%esp), %eax
   movl 8(%esp), %edx
+  # 왜 eax, edx 에 따로 저장함?
+  # 이거 어캐 돌아가는거?(context switching)
+  # trap handler
+  # yield
+  # sched
+  # swtch!! 순으로 진행
 
   # Save old callee-saved registers
   pushl %ebp
