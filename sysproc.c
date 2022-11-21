@@ -114,3 +114,21 @@ int sys_forknexec(void){
 
   return forknexec((const char *)path, (const char **)&argv);
 }
+
+int
+sys_set_proc_priority(void)
+{
+  int pid, priority;
+  if(argint(0, &pid) < 0 || argint(1, &priority) < 0)
+    return -1;
+  return set_proc_priority(pid, priority);
+}
+
+int
+sys_get_proc_priority(void)
+{
+  int pid;
+  if(argint(0, &pid) < 0)
+    return -1;
+  return get_proc_priority(pid);
+}

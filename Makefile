@@ -184,6 +184,8 @@ UPROGS=\
 	_hello\
 	_forknexectest\
 	_forknexectest2\
+	_ptest\
+	_loop\
 
 fs.img: mkfs README $(UPROGS)
 	./mkfs fs.img README $(UPROGS)

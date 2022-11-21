@@ -90,6 +90,10 @@ found:
   p->state = EMBRYO;
   p->pid = nextpid++;
 
+  // 우선순위 기본값은 5, 실행횟수는 0
+  p->priority = 5;
+  p->count = 0;
+
   release(&ptable.lock);
 
   // Allocate kernel stack.
@@ -201,6 +205,9 @@ fork(void)
   np->parent = curproc;
   *np->tf = *curproc->tf;
 
+  // copy process priority
+  np->priority = curproc->priority;
+
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
 
@@ -235,6 +242,9 @@ int forknexec(const char* path, const char **args)
 
   new_process->parent = current_process;
   *new_process->tf = *current_process->tf;
+
+  // copy process priority 
+  new_process->priority = current_process->priority;
 
   for(i = 0; i < NOFILE; i++)
     if(current_process->ofile[i])
@@ -436,6 +446,38 @@ wait(void)
   }
 }
 
+#define INT_MAX 2147483647
+
+int get_priority_considering_count_of(struct proc *proc)
+{
+  long long priority = (long long)proc->priority + proc->count;
+  if (priority > INT_MAX)
+  {
+    return INT_MAX;
+  }
+  return priority;
+  // return proc->priority;
+}
+
+struct proc *find_runnable_to_switch()
+{
+  int priority_min = INT_MAX;
+  struct proc *proc_to_run = 0;
+  for (struct proc *p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+  {
+    if (p->state != RUNNABLE)
+    {
+      continue;
+    }
+    if (priority_min > get_priority_considering_count_of(p))
+    {
+      priority_min = get_priority_considering_count_of(p);
+      proc_to_run = p;
+    }
+  }
+  return proc_to_run;
+}
+
 //PAGEBREAK: 42
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
@@ -444,28 +486,44 @@ wait(void)
 //  - swtch to start running that process
 //  - eventually that process transfers control
 //      via swtch back to the scheduler.
-void
-scheduler(void)
+void scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
-  
-  for(;;){
+
+  for (;;)
+  {
     // Enable interrupts on this processor.
     sti();
 
+    struct proc *runnable_to_switch = find_runnable_to_switch();
+    if (!runnable_to_switch)
+    {
+      continue;
+    }
+
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
+    for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+    {
+      if (p->state != RUNNABLE)
+      {
         continue;
+      }
+
+      if (runnable_to_switch != p)
+      {
+        continue;
+      }
 
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
       c->proc = p;
       switchuvm(p);
+
+      p->count++;
       p->state = RUNNING;
 
       swtch(&(c->scheduler), p->context);
@@ -476,7 +534,6 @@ scheduler(void)
       c->proc = 0;
     }
     release(&ptable.lock);
-
   }
 }
 
@@ -621,6 +678,45 @@ kill(int pid)
   return -1;
 }
 
+char *get_pstate(int state)
+{
+  if (state == UNUSED)
+    return "UNUSED    ";
+  if (state == EMBRYO)
+    return "EMBRYO    ";
+  if (state == SLEEPING)
+    return "SLEEPING  ";
+  if (state == RUNNABLE)
+    return "RUNNABLE  ";
+  if (state == RUNNING)
+    return "RUNNING   ";
+  if (state == ZOMBIE)
+    return "ZOMBIE    ";
+  return "UNKNOWN   ";
+}
+
+int get_parent_pid_of(struct proc *p)
+{
+  if (p->parent)
+  {
+    return p->parent->pid;
+  }
+  return -1;
+}
+
+void ptable_lookup()
+{
+  struct proc *p;
+  cprintf("name\tpid\tparent\tstate\t\tpriority\tcount\n");
+  for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+  {
+    if (p->state != UNUSED)
+    {
+      cprintf("%s\t%d\t%d\t%s\t%d\t\t%d\n", p->name, p->pid, get_parent_pid_of(p), get_pstate(p->state), p->priority, p->count);
+    }
+  }
+}
+
 //PAGEBREAK: 36
 // Print a process listing to console.  For debugging.
 // Runs when user types ^P on console.
@@ -628,6 +724,8 @@ kill(int pid)
 void
 procdump(void)
 {
+  ptable_lookup();
+  return;
   static char *states[] = {
   [UNUSED]    "unused",
   [EMBRYO]    "embryo",
@@ -656,4 +754,34 @@ procdump(void)
     }
     cprintf("\n");
   }
+}
+
+int set_proc_priority(int pid, int priority)
+{
+  struct proc *p;
+  for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+  {
+    if(p->pid == pid) {
+
+      acquire(&ptable.lock);
+      p->priority = priority;
+      release(&ptable.lock);
+      return p->priority;
+    }
+  }
+
+  return -1;
+}
+
+int get_proc_priority(int pid)
+{
+  struct proc *p;
+  for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+  {
+    if (p->pid == pid)
+    {
+      return p->priority;
+    }
+  }
+  return -1;
 }
