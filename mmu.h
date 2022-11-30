@@ -71,10 +71,10 @@ struct segdesc {
 //  \--- PDX(va) --/ \--- PTX(va) --/
 
 // page directory index
-#define PDX(va)         (((uint)(va) >> PDXSHIFT) & 0x3FF)
+#define PDX(va)         (((uint)(va) >> PDXSHIFT) & 0x3FF) // 앞 10자리
 
 // page table index
-#define PTX(va)         (((uint)(va) >> PTXSHIFT) & 0x3FF)
+#define PTX(va)         (((uint)(va) >> PTXSHIFT) & 0x3FF) // 뒤 10자리
 
 // construct virtual address from indexes and offset
 #define PGADDR(d, t, o) ((uint)((d) << PDXSHIFT | (t) << PTXSHIFT | (o)))
@@ -115,7 +115,7 @@ struct taskstate {
   uint *esp2;
   ushort ss2;
   ushort padding3;
-  void *cr3;         // Page directory base
+  void *cr3;         // Page directory base 페이지 테이블 주소를 가지는 레지스터
   uint *eip;         // Saved state from last task switch
   uint eflags;
   uint eax;          // More saved state (registers)

@@ -327,7 +327,7 @@ copyuvm(pde_t *pgdir, uint sz)
       panic("copyuvm: pte should exist");
     if(!(*pte & PTE_P))
       panic("copyuvm: page not present");
-    pa = PTE_ADDR(*pte);
+    pa = PTE_ADDR(*pte); // 여기 수정해야함. Write 권한 제거
     flags = PTE_FLAGS(*pte);
     if((mem = kalloc()) == 0)
       goto bad;
