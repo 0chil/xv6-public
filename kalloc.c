@@ -28,22 +28,16 @@ uint num_free_pages;
 uint pgrefcount[PHYSTOP >> PGSHIFT];
 
 uint get_refcount(uint pa){
-  // acquire(&kmem.lock);
   uint c =  pgrefcount[pa >> PGSHIFT];
-  // release(&kmem.lock);
   return c;
 }
 
 void inc_refcount(uint pa){
-  acquire(&kmem.lock);
   ++pgrefcount[pa >> PGSHIFT];
-  release(&kmem.lock);
 }
 
 void dec_refcount(uint pa){
-  acquire(&kmem.lock);
   --pgrefcount[pa >> PGSHIFT];
-  release(&kmem.lock);
 }
 
 
