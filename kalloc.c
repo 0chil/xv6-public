@@ -23,6 +23,9 @@ struct {
   struct run *freelist;
 } kmem;
 
+uint num_free_pages;
+
+
 // Initialization happens in two phases.
 // 1. main() calls kinit1() while still using entrypgdir to place just
 // the pages mapped by entrypgdir on free list.
@@ -33,6 +36,7 @@ kinit1(void *vstart, void *vend)
 {
   initlock(&kmem.lock, "kmem");
   kmem.use_lock = 0;
+  num_free_pages = 0;
   freerange(vstart, vend);
 }
 
@@ -65,13 +69,16 @@ kfree(char *v)
     panic("kfree");
 
   // Fill with junk to catch dangling refs.
-  memset(v, 1, PGSIZE);
 
   if(kmem.use_lock)
     acquire(&kmem.lock);
+  memset(v, 1, PGSIZE);
+  num_free_pages++;
   r = (struct run*)v;
   r->next = kmem.freelist;
   kmem.freelist = r;
+  cprintf("+kfree called, r: %p, fp: %d\n", r, num_free_pages);
+
   if(kmem.use_lock)
     release(&kmem.lock);
 }
@@ -87,10 +94,18 @@ kalloc(void)
   if(kmem.use_lock)
     acquire(&kmem.lock);
   r = kmem.freelist;
-  if(r)
+  if (r) {
     kmem.freelist = r->next;
-  if(kmem.use_lock)
+  }
+
+  num_free_pages--; // 할당 한 경우에만 ++,
+  // cprintf("-kalloc called, r: %p, fp: %d\n", r, num_free_pages);
+  if (kmem.use_lock)
     release(&kmem.lock);
-  return (char*)r;
+  return (char *)r;
 }
 
+uint get_num_free_pages()
+{
+  return num_free_pages;
+}

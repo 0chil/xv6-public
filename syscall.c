@@ -106,6 +106,7 @@ extern int sys_uptime(void);
 extern int sys_forknexec(void);
 extern int sys_set_proc_priority(void);
 extern int sys_get_proc_priority(void);
+extern int sys_get_num_free_pages(void);
 
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -131,7 +132,8 @@ static int (*syscalls[])(void) = {
 [SYS_close]   sys_close,
 [SYS_forknexec] sys_forknexec,
 [SYS_set_proc_priority] sys_set_proc_priority,
-[SYS_get_proc_priority] sys_get_proc_priority
+[SYS_get_proc_priority] sys_get_proc_priority,
+[SYS_get_num_free_pages] sys_get_num_free_pages
 };
 
 void
