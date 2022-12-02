@@ -318,7 +318,7 @@ copyuvm(pde_t *pgdir, uint sz)
   pde_t *d;
   pte_t *pte;
   uint pa, i, flags;
-  char *mem;
+  char *mem = 0;
 
   if((d = setupkvm()) == 0)
     return 0;
@@ -327,16 +327,17 @@ copyuvm(pde_t *pgdir, uint sz)
       panic("copyuvm: pte should exist");
     if(!(*pte & PTE_P))
       panic("copyuvm: page not present");
-    pa = PTE_ADDR(*pte); // 여기 수정해야함. Write 권한 제거
+
+    *pte &= (~PTE_W);
+    pa = PTE_ADDR(*pte);
     flags = PTE_FLAGS(*pte);
-    if((mem = kalloc()) == 0)
-      goto bad;
-    memmove(mem, (char*)P2V(pa), PGSIZE);
     if(mappages(d, (void*)i, PGSIZE, V2P(mem), flags) < 0) {
-      kfree(mem);
       goto bad;
     }
+    inc_refcount(pa);
   }
+  lcr3(V2P(pgdir));
+
   return d;
 
 bad:
@@ -391,4 +392,31 @@ copyout(pde_t *pgdir, uint va, void *p, uint len)
 // Blank page.
 //PAGEBREAK!
 // Blank page.
+
+void 
+pagefault(void)
+{
+  pte_t *pte;
+  uint rc, pa, va = rcr2(); //faulting virtual address
+  if(va < 0){
+    panic("Wrong VA pagefault");
+    return;
+  }
+  pte = walkpgdir(myproc()->pgdir, (void*)va, 0);
+  pa = PTE_ADDR(*pte);
+  rc = get_refcount(pa);
+
+  if(rc > 1){
+    char* mem;
+    mem = kalloc();
+    if(mem == 0) return;
+    memmove(mem, (char*)P2V(pa), PGSIZE);
+    *pte = V2P(mem) | PTE_P | PTE_U | PTE_W;
+    dec_refcount(pa);
+  }
+  else if(rc == 1){
+    *pte |= PTE_W;
+  }
+  lcr3(V2P(myproc()->pgdir));
+}
 

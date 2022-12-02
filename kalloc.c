@@ -25,6 +25,27 @@ struct {
 
 uint num_free_pages;
 
+uint pgrefcount[PHYSTOP >> PGSHIFT];
+
+uint get_refcount(uint pa){
+  // acquire(&kmem.lock);
+  uint c =  pgrefcount[pa >> PGSHIFT];
+  // release(&kmem.lock);
+  return c;
+}
+
+void inc_refcount(uint pa){
+  acquire(&kmem.lock);
+  ++pgrefcount[pa >> PGSHIFT];
+  release(&kmem.lock);
+}
+
+void dec_refcount(uint pa){
+  acquire(&kmem.lock);
+  --pgrefcount[pa >> PGSHIFT];
+  release(&kmem.lock);
+}
+
 
 // Initialization happens in two phases.
 // 1. main() calls kinit1() while still using entrypgdir to place just
@@ -52,8 +73,10 @@ freerange(void *vstart, void *vend)
 {
   char *p;
   p = (char*)PGROUNDUP((uint)vstart);
-  for(; p + PGSIZE <= (char*)vend; p += PGSIZE)
+  for(; p + PGSIZE <= (char*)vend; p += PGSIZE) {
+    pgrefcount[V2P(p) >> PGSHIFT] = 0;
     kfree(p);
+  }
 }
 //PAGEBREAK: 21
 // Free the page of physical memory pointed at by v,
@@ -68,16 +91,19 @@ kfree(char *v)
   if((uint)v % PGSIZE || v < end || V2P(v) >= PHYSTOP)
     panic("kfree");
 
-  // Fill with junk to catch dangling refs.
-
-  if(kmem.use_lock)
+  if (kmem.use_lock)
     acquire(&kmem.lock);
-  memset(v, 1, PGSIZE);
-  num_free_pages++;
-  r = (struct run*)v;
-  r->next = kmem.freelist;
-  kmem.freelist = r;
-  cprintf("+kfree called, r: %p, fp: %d\n", r, num_free_pages);
+  if (get_refcount(V2P(v)) > 0)
+    dec_refcount(V2P(v));
+
+  if (get_refcount(V2P(v)) == 0)
+  {
+    memset(v, 1, PGSIZE);
+    num_free_pages++;
+    r = (struct run *)v;
+    r->next = kmem.freelist;
+    kmem.freelist = r;
+  }
 
   if(kmem.use_lock)
     release(&kmem.lock);
@@ -93,16 +119,15 @@ kalloc(void)
 
   if(kmem.use_lock)
     acquire(&kmem.lock);
+  num_free_pages--;
   r = kmem.freelist;
-  if (r) {
+  if(r){
     kmem.freelist = r->next;
+    pgrefcount[V2P((char*)r) >> PGSHIFT] = 1;
   }
-
-  num_free_pages--; // 할당 한 경우에만 ++,
-  // cprintf("-kalloc called, r: %p, fp: %d\n", r, num_free_pages);
-  if (kmem.use_lock)
+  if(kmem.use_lock)
     release(&kmem.lock);
-  return (char *)r;
+  return (char*)r;
 }
 
 uint get_num_free_pages()
