@@ -327,7 +327,6 @@ copyuvm(pde_t *pgdir, uint sz)
     if(!(*pte & PTE_P))
       panic("copyuvm: page not present");
 
-    *pte &= (~PTE_W);
     pa = PTE_ADDR(*pte);
     flags = PTE_FLAGS(*pte);
     if(mappages(d, (void*)i, PGSIZE, pa, flags) < 0) {
