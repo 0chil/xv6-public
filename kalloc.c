@@ -9,6 +9,8 @@
 #include "mmu.h"
 #include "spinlock.h"
 
+#include "proc.h"
+
 void freerange(void *vstart, void *vend);
 extern char end[]; // first address after kernel loaded from ELF file
                    // defined by the kernel linker script in kernel.ld
@@ -128,3 +130,14 @@ uint get_num_free_pages()
 {
   return num_free_pages;
 }
+
+// uint get_physical_address_of(char *v)
+// {
+//   return myproc()->pgdir;
+// }
+
+// 페이지테이블 두번째 인자가 뭔지 X
+// 페이지테이블 엔트리가 어떻게 생겼는지.
+
+// 페이지 테이블 엔트리 쪽 주소는 물리주소다. mmu가 접근해야 하는 부분.
+// 하드웨어가 바로바로 접근해야 하기 때문이다.
