@@ -187,7 +187,6 @@ UPROGS=\
 	_ptest\
 	_loop\
 	_cow\
-	_cowtest\
 
 fs.img: mkfs README $(UPROGS)
 	./mkfs fs.img README $(UPROGS)
