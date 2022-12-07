@@ -2,35 +2,36 @@
 #include "user.h"
 
 int aaa = 0;
+int bbb;
 
-void test_cow_global_var()
+void test_var_change()
 {
-    int initial_free_pages = get_num_free_pages();
-    printf(1, "initial free pages: %d\n", initial_free_pages);
     int pid = fork();
     if (pid == 0)
     {
-        printf(1, "child free pages: %d\n", get_num_free_pages());
+        int free_pages = get_num_free_pages();
         aaa = 1;
-        assert("free pages after change < initial free pages", get_num_free_pages() < initial_free_pages);
+        assert("free pages after change < initial free pages", get_num_free_pages() < free_pages);
         exit();
     }
     else
     {
         wait();
-        assert("free pages after child process done: %d\n", initial_free_pages == get_num_free_pages());
     }
 }
 
-void test_cow_va_pa()
+void test_fork()
 {
-    printf(1, "parent va(aaa): %p\n", &aaa);
+    int ptaddr_of_aaa_parent = get_page_table_address_of(&aaa);
     int pid = fork();
     if (pid == 0)
     {
-        printf(1, "child va(aaa): %p\n", &aaa);
-        aaa = 1;
-        printf(1, "child va(aaa) after change: %p\n", &aaa);
+        int ptaddr_from_child = get_page_table_address_of(&aaa);
+        assert("page table of (aaa) from parent process == page table of (aaa) from child process", ptaddr_of_aaa_parent == ptaddr_from_child);
+        printf(1, "aaa == %d\n", aaa);
+        aaa = 777;
+        printf(1, "aaa == %d\n", aaa);
+        assert("page table changed after variable modification", get_page_table_address_of(&aaa) != ptaddr_from_child);
         exit();
     }
     else
@@ -41,8 +42,7 @@ void test_cow_va_pa()
 
 int main()
 {
-    // printf(1, "get_num_free_pages: %d\n", get_num_free_pages());
-    test_cow_global_var();
-    test_cow_va_pa();
+    test_var_change();
+    test_fork();
     exit();
 }

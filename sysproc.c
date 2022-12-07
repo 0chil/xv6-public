@@ -138,3 +138,11 @@ sys_get_num_free_pages(void)
 {
   return get_num_free_pages();
 }
+
+int
+sys_get_page_table_address_of(void)
+{
+  void *p;
+  argptr(0, (char **)&p, sizeof p);
+  return get_page_table_address_of(p);
+}

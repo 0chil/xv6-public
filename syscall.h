@@ -24,3 +24,4 @@
 #define SYS_set_proc_priority 23
 #define SYS_get_proc_priority 24
 #define SYS_get_num_free_pages 25
+#define SYS_get_page_table_address_of 26

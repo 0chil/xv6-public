@@ -344,6 +344,38 @@ bad:
   return 0;
 }
 
+// 원래 코드
+// pde_t *
+// copyuvm(pde_t *pgdir, uint sz)
+// {
+//   pde_t *d;
+//   pte_t *pte;
+//   uint pa, i, flags;
+//   char *mem;
+
+//   if ((d = setupkvm()) == 0)
+//     return 0;
+//   for (i = 0; i < sz; i += PGSIZE)
+//   {
+//     if ((pte = walkpgdir(pgdir, (void *)i, 0)) == 0)
+//       panic("copyuvm: pte should exist");
+//     if (!(*pte & PTE_P))
+//       panic("copyuvm: page not present");
+//     pa = PTE_ADDR(*pte);
+//     flags = PTE_FLAGS(*pte);
+//     if ((mem = kalloc()) == 0) // 무조건 새로 공간을 만들고 
+//       goto bad;
+//     memmove(mem, (char *)P2V(pa), PGSIZE); // 복사한다.
+//     if (mappages(d, (void *)i, PGSIZE, V2P(mem), flags) < 0) // 
+//       goto bad;
+//   }
+//   return d;
+
+// bad:
+//   freevm(d);
+//   return 0;
+// }
+
 //PAGEBREAK!
 // Map user virtual address to kernel address.
 char*
@@ -419,3 +451,10 @@ pagefault(void)
   lcr3(V2P(myproc()->pgdir));
 }
 
+int get_page_table_address_of(void *va)
+{
+  pte_t *pte_of_va = walkpgdir(myproc()->pgdir, va, 0);
+  uint address_of_pt = PTE_ADDR(*pte_of_va);
+  cprintf("refcount of page table for %p: %d\n", va ,get_refcount(address_of_pt));
+  return address_of_pt;
+}

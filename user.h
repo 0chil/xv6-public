@@ -27,6 +27,7 @@ int forknexec(const char *, const char **);
 int set_proc_priority(int, int);
 int get_proc_priority(int);
 uint get_num_free_pages(void);
+int get_page_table_address_of(void*);
 
 // ulib.c
 int stat(const char*, struct stat*);

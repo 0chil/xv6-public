@@ -36,6 +36,7 @@ uint get_refcount(uint pa){
 
 void inc_refcount(uint pa){
   ++pgrefcount[pa >> PGSHIFT];
+  // cprintf("pa(%p) ++refcount = %d\n", pa, pgrefcount[pa >> PGSHIFT]);
 }
 
 void dec_refcount(uint pa){
@@ -130,11 +131,6 @@ uint get_num_free_pages()
 {
   return num_free_pages;
 }
-
-// uint get_physical_address_of(char *v)
-// {
-//   return myproc()->pgdir;
-// }
 
 // 페이지테이블 두번째 인자가 뭔지 X
 // 페이지테이블 엔트리가 어떻게 생겼는지.

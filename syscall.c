@@ -107,6 +107,7 @@ extern int sys_forknexec(void);
 extern int sys_set_proc_priority(void);
 extern int sys_get_proc_priority(void);
 extern int sys_get_num_free_pages(void);
+extern int sys_get_page_table_address_of(void);
 
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -133,7 +134,8 @@ static int (*syscalls[])(void) = {
 [SYS_forknexec] sys_forknexec,
 [SYS_set_proc_priority] sys_set_proc_priority,
 [SYS_get_proc_priority] sys_get_proc_priority,
-[SYS_get_num_free_pages] sys_get_num_free_pages
+[SYS_get_num_free_pages] sys_get_num_free_pages,
+[SYS_get_page_table_address_of] sys_get_page_table_address_of,
 };
 
 void
